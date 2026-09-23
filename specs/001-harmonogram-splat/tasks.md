@@ -79,7 +79,7 @@ sumę części kapitałowych = 400 000 zł.
 
 - [X] T007 [US1] Zaimplementować `policzHarmonogram` w `src/domena/harmonogram.ts` dla `typRat === 'rowne'`: wzór annuitetowy przeliczany przy każdej zmianie stopy (D4), zaokrąglanie odsetek `Math.round(saldoGr * stopaOkresowa)`, kapitał = rata − odsetki, rata wyrównująca na końcu (D6). Odsetki liczone `saldoGr * (wskaznik + marza/100) / 12` (D3). Zwraca pełen `Harmonogram`. T006 musi być zielony.
 - [X] T008 [US1] Napisać cienki route handler `app/api/harmonogram/route.ts`: parsowanie query string zgodne z [contracts/api-harmonogram.md](./contracts/api-harmonogram.md) (na razie wystarczy `kwota`, `liczbaRat`, `pierwszaRata`, `marza`, `typRat=rowne`, `wskaznik`), walidacja (HTTP 400 z `{ blad, pole }` przy błędzie), wywołanie `policzHarmonogram` z `pobierzSerie(wskaznik)`, zwrot `Harmonogram` jako JSON. Bez logiki obliczeń (Konstytucja § IV).
-- [ ] T009 [US1] Ręcznie zweryfikować `GET /api/harmonogram?kwota=40000000&liczbaRat=300&pierwszaRata=2026-10-15&marza=2.11&typRat=rowne&wskaznik=polstr-1m` – pierwsza rata z odpowiedzi zbliżona do 2 495,85 zł (wartość z pliku 3,55472 %, zgodnie z BRIEF). Zapisać wynik w opisie PR.
+- [X] T009 [US1] Ręcznie zweryfikować `GET /api/harmonogram?kwota=40000000&liczbaRat=300&pierwszaRata=2026-10-15&marza=2.11&typRat=rowne&wskaznik=polstr-1m` – pierwsza rata z odpowiedzi zbliżona do 2 495,85 zł (wartość z pliku 3,55472 %, zgodnie z BRIEF). Zapisać wynik w opisie PR.
 
 **Checkpoint**: MVP – historia P1 działa i daje liczbę kontrolną w teście.
 
@@ -96,12 +96,12 @@ części kapitałowych = kwota kredytu.
 
 ### Testy US2
 
-- [ ] T010 [P] [US2] Napisać test `tests/domena/malejaceRaty.test.ts`: dla tych samych parametrów co T006, ale `typRat: 'malejace'` – asercje: `pozycje[0].kapitalGr === pozycje[1].kapitalGr` (poza ratą wyrównującą), `pozycje[0].rataGr > pozycje[299].rataGr`, `sum(pozycje.kapitalGr) === 40_000_000`, `pozycje[299].saldoPoGr === 0`. Test najpierw czerwony.
+- [X] T010 [P] [US2] Napisać test `tests/domena/malejaceRaty.test.ts`: dla tych samych parametrów co T006, ale `typRat: 'malejace'` – asercje: `pozycje[0].kapitalGr === pozycje[1].kapitalGr` (poza ratą wyrównującą), `pozycje[0].rataGr > pozycje[299].rataGr`, `sum(pozycje.kapitalGr) === 40_000_000`, `pozycje[299].saldoPoGr === 0`. Test najpierw czerwony.
 
 ### Implementacja US2
 
-- [ ] T011 [US2] Rozszerzyć `policzHarmonogram` w `src/domena/harmonogram.ts` o gałąź `typRat === 'malejace'` (D5): część kapitałowa `Math.round(kapitalPozostalyGr / liczbaPozostalychRat)`, odsetki jak w US1, rata wyrównująca na końcu (D6). T010 zielony.
-- [ ] T012 [US2] Zaktualizować walidację `app/api/harmonogram/route.ts` tak, aby `typRat=malejace` był akceptowanym parametrem enuma zgodnie z [contracts/api-harmonogram.md](./contracts/api-harmonogram.md).
+- [X] T011 [US2] Rozszerzyć `policzHarmonogram` w `src/domena/harmonogram.ts` o gałąź `typRat === 'malejace'` (D5): część kapitałowa `Math.round(kapitalPozostalyGr / liczbaPozostalychRat)`, odsetki jak w US1, rata wyrównująca na końcu (D6). T010 zielony.
+- [X] T012 [US2] Zaktualizować walidację `app/api/harmonogram/route.ts` tak, aby `typRat=malejace` był akceptowanym parametrem enuma zgodnie z [contracts/api-harmonogram.md](./contracts/api-harmonogram.md).
 
 **Checkpoint**: US1 i US2 działają niezależnie.
 
@@ -117,11 +117,11 @@ równych) albo inną część odsetkową (dla rat malejących) w racie N i N+1.
 
 ### Testy US3
 
-- [ ] T013 [P] [US3] Napisać test `tests/domena/zmianaWskaznika.test.ts`: dwa scenariusze – (a) POLSTR 1M, seria dwuwpisowa: `{ '2026-01-01': 0.030 }` i `{ '2027-01-01': 0.050 }`, kredyt 300 rat od 2026-10-15, `typRat: 'rowne'` – asercja: pozycja z datą `< 2027-01-01` używa `stopaRoczna === 0.030 + 0.0211`, pozycja z datą `≥ 2027-01-01` używa `stopaRoczna === 0.050 + 0.0211`; rata przy drugiej stopie jest różna od raty przy pierwszej. (b) WIBOR 3M, seria z jedną zmianą między kwartałami – asercja: w obrębie kwartału stopa stała, zmienia się dopiero na pierwszej racie kolejnego kwartału.
+- [X] T013 [P] [US3] Napisać test `tests/domena/zmianaWskaznika.test.ts`: dwa scenariusze – (a) POLSTR 1M, seria dwuwpisowa: `{ '2026-01-01': 0.030 }` i `{ '2027-01-01': 0.050 }`, kredyt 300 rat od 2026-10-15, `typRat: 'rowne'` – asercja: pozycja z datą `< 2027-01-01` używa `stopaRoczna === 0.030 + 0.0211`, pozycja z datą `≥ 2027-01-01` używa `stopaRoczna === 0.050 + 0.0211`; rata przy drugiej stopie jest różna od raty przy pierwszej. (b) WIBOR 3M, seria z jedną zmianą między kwartałami – asercja: w obrębie kwartału stopa stała, zmienia się dopiero na pierwszej racie kolejnego kwartału.
 
 ### Implementacja US3
 
-- [ ] T014 [US3] Upewnić się, że pętla w `policzHarmonogram` (`src/domena/harmonogram.ts`) dla każdej raty wywołuje `stopaNaOkres(seria, dataRaty, marzaPp)` z bieżącą datą raty i – dla rat równych – przelicza ratę wzorem annuitetowym przy zmianie stopy (D4). Uzupełnić pole `stopaRoczna` w każdej `PozycjaHarmonogramu`. T013 zielony.
+- [X] T014 [US3] Upewnić się, że pętla w `policzHarmonogram` (`src/domena/harmonogram.ts`) dla każdej raty wywołuje `stopaNaOkres(seria, dataRaty, marzaPp)` z bieżącą datą raty i – dla rat równych – przelicza ratę wzorem annuitetowym przy zmianie stopy (D4). Uzupełnić pole `stopaRoczna` w każdej `PozycjaHarmonogramu`. T013 zielony.
 
 **Checkpoint**: US1–US3 działają niezależnie, zmiana wskaźnika jest widoczna w wyniku.
 
@@ -137,13 +137,13 @@ kwota kredytu w obu wariantach.
 
 ### Testy US4
 
-- [ ] T015 [P] [US4] Napisać test `tests/domena/nadplaty.test.ts` z trzema przypadkami: (a) tryb `obniz-rate` – liczba pozycji = `liczbaRat`, rata w 13. miesiącu < rata w 12. miesiącu, `sum(pozycje.kapitalGr) + sum(pozycje.nadplataGr) === kwotaGr`; (b) tryb `skroc-okres` – liczba pozycji < `liczbaRat`, wysokość raty w 13. miesiącu ≈ rata w 12. miesiącu, ta sama suma; (c) nadpłata > salda w danym miesiącu – ostatnia pozycja ma `saldoPoGr === 0` i suma się zgadza.
+- [X] T015 [P] [US4] Napisać test `tests/domena/nadplaty.test.ts` z trzema przypadkami: (a) tryb `obniz-rate` – liczba pozycji = `liczbaRat`, rata w 13. miesiącu < rata w 12. miesiącu, `sum(pozycje.kapitalGr) + sum(pozycje.nadplataGr) === kwotaGr`; (b) tryb `skroc-okres` – liczba pozycji < `liczbaRat`, wysokość raty w 13. miesiącu ≈ rata w 12. miesiącu, ta sama suma; (c) nadpłata > salda w danym miesiącu – ostatnia pozycja ma `saldoPoGr === 0` i suma się zgadza.
 
 ### Implementacja US4
 
-- [ ] T016 [US4] Rozszerzyć `policzHarmonogram` (`src/domena/harmonogram.ts`) o obsługę `parametry.nadplaty` (D7): w danym miesiącu odejmujemy `nadplataGr` od salda, dla `obniz-rate` przy racie równej – przeliczamy ratę wzorem annuitetowym na nowo dla pozostałych rat; dla `skroc-okres` – kończymy pętlę, gdy saldo osiągnie 0. Ustawiamy `PozycjaHarmonogramu.nadplataGr`. T015 zielony.
-- [ ] T017 [US4] Dodać walidację nadpłat w `src/domena/harmonogram.ts` i w `app/api/harmonogram/route.ts`: `miesiac ∈ [1, liczbaRat]`, `kwotaGr > 0`, `tryb ∈ {obniz-rate, skroc-okres}`, `sum(nadplaty.kwotaGr) ≤ kwotaGr`; złamanie reguły → `Error` w domenie i HTTP 400 z `{ blad, pole: 'nadplata' }` na warstwie API zgodnie z [contracts/api-harmonogram.md](./contracts/api-harmonogram.md).
-- [ ] T018 [US4] Zaktualizować parser query string w `app/api/harmonogram/route.ts` o powtarzalny parametr `nadplata=<miesiac>:<kwotaGr>:<tryb>` (0..N, kolejność zachowana), z osobnym błędem walidacji dla niepoprawnego formatu.
+- [X] T016 [US4] Rozszerzyć `policzHarmonogram` (`src/domena/harmonogram.ts`) o obsługę `parametry.nadplaty` (D7): w danym miesiącu odejmujemy `nadplataGr` od salda, dla `obniz-rate` przy racie równej – przeliczamy ratę wzorem annuitetowym na nowo dla pozostałych rat; dla `skroc-okres` – kończymy pętlę, gdy saldo osiągnie 0. Ustawiamy `PozycjaHarmonogramu.nadplataGr`. T015 zielony.
+- [X] T017 [US4] Dodać walidację nadpłat w `src/domena/harmonogram.ts` i w `app/api/harmonogram/route.ts`: `miesiac ∈ [1, liczbaRat]`, `kwotaGr > 0`, `tryb ∈ {obniz-rate, skroc-okres}`, `sum(nadplaty.kwotaGr) ≤ kwotaGr`; złamanie reguły → `Error` w domenie i HTTP 400 z `{ blad, pole: 'nadplata' }` na warstwie API zgodnie z [contracts/api-harmonogram.md](./contracts/api-harmonogram.md).
+- [X] T018 [US4] Zaktualizować parser query string w `app/api/harmonogram/route.ts` o powtarzalny parametr `nadplata=<miesiac>:<kwotaGr>:<tryb>` (0..N, kolejność zachowana), z osobnym błędem walidacji dla niepoprawnego formatu.
 
 **Checkpoint**: cała matematyka domenowa (US1–US4) i cały kontrakt API są kompletne.
 
@@ -160,10 +160,10 @@ tabelę 300 rat i sumę odsetek; kliknięcie „Eksport CSV” pobiera plik.
 
 ### Implementacja US5
 
-- [ ] T019 [US5] Wkleić gotowy komponent React z Claude Design jako `app/page.tsx` z dyrektywą `'use client'` w pierwszej linii ([KARTA.md](../../KARTA.md) – tor równoległy). Bez bibliotek UI, Tailwind, jeden plik.
-- [ ] T020 [US5] Podpiąć formularz do endpointu: `fetch('/api/harmonogram?...')` z parametrami z formularza w query string (`kwota`, `liczbaRat`, `pierwszaRata`, `marza`, `typRat`, `wskaznik`, powtarzalne `nadplata`) – bez duplikowania obliczeń (Konstytucja § IV). Obsługa błędu HTTP 400: pokazać `blad` i `pole` z odpowiedzi.
-- [ ] T021 [US5] Zaimplementować widok wyniku w `app/page.tsx`: rata pierwsza, rata ostatnia, suma odsetek, tabela rat (nr, data, kapitał, odsetki, rata, saldo). Formatowanie kwot: separator tysięcy `\u00A0`, przecinek dziesiętny, dwa miejsca po przecinku; konwersja `groszeInt → PLN` dokładnie w tym miejscu.
-- [ ] T022 [US5] Zaimplementować „Eksport CSV” w `app/page.tsx` (D10): `Blob` z `text/csv;charset=utf-8`, nagłówek `nr;data;kapital;odsetki;rata;saldo`, wartości w formacie polskim (przecinek), pobranie przez `URL.createObjectURL` i tymczasowe `<a download>`.
+- [X] T019 [US5] Wkleić gotowy komponent React z Claude Design jako `app/page.tsx` z dyrektywą `'use client'` w pierwszej linii ([KARTA.md](../../KARTA.md) – tor równoległy). Bez bibliotek UI, Tailwind, jeden plik.
+- [X] T020 [US5] Podpiąć formularz do endpointu: `fetch('/api/harmonogram?...')` z parametrami z formularza w query string (`kwota`, `liczbaRat`, `pierwszaRata`, `marza`, `typRat`, `wskaznik`, powtarzalne `nadplata`) – bez duplikowania obliczeń (Konstytucja § IV). Obsługa błędu HTTP 400: pokazać `blad` i `pole` z odpowiedzi.
+- [X] T021 [US5] Zaimplementować widok wyniku w `app/page.tsx`: rata pierwsza, rata ostatnia, suma odsetek, tabela rat (nr, data, kapitał, odsetki, rata, saldo). Formatowanie kwot: separator tysięcy `\u00A0`, przecinek dziesiętny, dwa miejsca po przecinku; konwersja `groszeInt → PLN` dokładnie w tym miejscu.
+- [X] T022 [US5] Zaimplementować „Eksport CSV” w `app/page.tsx` (D10): `Blob` z `text/csv;charset=utf-8`, nagłówek `nr;data;kapital;odsetki;rata;saldo`, wartości w formacie polskim (przecinek), pobranie przez `URL.createObjectURL` i tymczasowe `<a download>`.
 
 **Checkpoint**: pełny MVP – US1–US5 działają niezależnie, ekran gotowy do demonstracji.
 
@@ -173,10 +173,10 @@ tabelę 300 rat i sumę odsetek; kliknięcie „Eksport CSV” pobiera plik.
 
 **Cel**: końcowe uszczelnienie i walidacja end-to-end.
 
-- [ ] T023 [P] Przejrzeć wszystkie testy vitest pod kątem jawnej liczby kontrolnej w treści (Konstytucja § III); dopisać brakujące asercje `SC-002` (`sum(kapitalGr) + sum(nadplataGr) === kwotaGr`) w testach, w których jeszcze ich nie ma.
-- [ ] T024 Uruchomić bramki jakości: `npm test`, `npm run typecheck`, `npm run build` – wszystkie zielone lokalnie ([KARTA.md](../../KARTA.md) – Bramka 2). Wynik dołączyć do opisu ostatniego PR.
+- [X] T023 [P] Przejrzeć wszystkie testy vitest pod kątem jawnej liczby kontrolnej w treści (Konstytucja § III); dopisać brakujące asercje `SC-002` (`sum(kapitalGr) + sum(nadplataGr) === kwotaGr`) w testach, w których jeszcze ich nie ma.
+- [X] T024 Uruchomić bramki jakości: `npm test`, `npm run typecheck`, `npm run build` – wszystkie zielone lokalnie ([KARTA.md](../../KARTA.md) – Bramka 2). Wynik dołączyć do opisu ostatniego PR.
 - [ ] T025 Wykonać walidację ręczną z [quickstart.md](./quickstart.md) na produkcyjnym adresie Vercela: sprawdzić US1 (liczba kontrolna z pliku), US4 (nadpłata w obu trybach), US5 (eksport CSV). Wynik dopisać do opisu PR / maila zaliczeniowego.
-- [ ] T026 [P] Zaktualizować [README.md](../../README.md): krótki opis funkcjonalności, adres produkcyjny Vercela, komenda uruchomienia lokalnego, wskazanie że dane w [dane/](../../dane) są niezmienne. Bez dodawania zależności.
+- [X] T026 [P] Zaktualizować [README.md](../../README.md): krótki opis funkcjonalności, adres produkcyjny Vercela, komenda uruchomienia lokalnego, wskazanie że dane w [dane/](../../dane) są niezmienne. Bez dodawania zależności.
 
 ---
 
