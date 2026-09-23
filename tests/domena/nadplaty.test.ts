@@ -39,6 +39,17 @@ describe('nadpłaty', () => {
     expect(suma).toBe(bazoweParametry.kwotaGr);
   });
 
+  it('w przypadku braku trybu domyślnie skraca okres', () => {
+    const { harmonogram, suma } = sumaKapitaluZNadplat(
+      bazoweParametry,
+      [{ miesiac: 12, kwotaGr: 5_000_000 }],
+    );
+
+    expect(harmonogram.pozycje.length).toBeLessThan(bazoweParametry.liczbaRat);
+    expect(harmonogram.pozycje[12]!.rataGr).toBeCloseTo(harmonogram.pozycje[11]!.rataGr, -2);
+    expect(suma).toBe(bazoweParametry.kwotaGr);
+  });
+
   it('przycina nadpłatę większą od salda i kończy saldo na zero', () => {
     const { harmonogram, suma } = sumaKapitaluZNadplat(
       { ...bazoweParametry, liczbaRat: 12 },

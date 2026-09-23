@@ -4,8 +4,13 @@ Szablon repozytorium na projekt końcowy szkolenia z AI w cyklu wytwarzania opro
 
 Aplikacja liczy harmonogram spłat kredytu dla wskaźnika POLSTR 1M lub WIBOR 3M,
 obsługuje raty równe i malejące, zmianę stopy w czasie oraz nadpłaty z obniżeniem
-raty albo skróceniem okresu. Ekran doradcy pozwala wyświetlić harmonogram i
-wyeksportować go do CSV.
+raty albo skróceniem okresu. Domyślny tryb nadpłaty pozostaje „skróć okres”, a
+konwencja rozliczenia jest: nadpłata księgowana po racie miesiąca, odsetki tego
+miesiąca liczone są od salda sprzed nadpłaty. Dla nadpłat w okresie 1–36 miesiąca
+umowy kalkulator pokazuje osobną rekompensatę art. 40, która nie pomniejsza salda
+ani kwoty nadpłaty. W wariancie konwersji WIBOR → POLSTR dostępny jest konfigurowalny
+spread korygujący i stopa zmienia się od pierwszej raty po dacie konwersji bez zmiany
+sald i długości kredytu. Ekran doradcy pozwala wyświetlić harmonogram i wyeksportować go do CSV.
 
 Dokumenty do przeczytania na start:
 

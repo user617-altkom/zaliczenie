@@ -9,7 +9,19 @@ import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 type TypRat = 'rowne' | 'malejace';
 type Wskaznik = 'polstr-1m' | 'wibor-3m';
 type TrybNadplaty = 'obniz-rate' | 'skroc-okres';
-type PoleFormularza = 'kwota' | 'liczbaRat' | 'pierwszaRata' | 'marza' | 'typRat' | 'wskaznik' | 'nadplata';
+type PoleFormularza =
+  | 'kwota'
+  | 'liczbaRat'
+  | 'pierwszaRata'
+  | 'marza'
+  | 'typRat'
+  | 'wskaznik'
+  | 'nadplata'
+  | 'konwersjaData'
+  | 'konwersjaRata'
+  | 'konwersjaWskaznik'
+  | 'spread'
+  | 'konwersja';
 
 interface Formularz {
   kwota: string;
@@ -18,6 +30,11 @@ interface Formularz {
   marza: string;
   wskaznik: Wskaznik;
   typRat: TypRat;
+  konwersjaAktywna: boolean;
+  konwersjaData: string;
+  konwersjaRata: string;
+  konwersjaWskaznik: Wskaznik;
+  spread: string;
 }
 
 interface NadplataFormularza {
@@ -81,11 +98,29 @@ const FORMULARZ_POCZATKOWY: Formularz = {
   marza: '2,11',
   wskaznik: 'polstr-1m',
   typRat: 'rowne',
+  konwersjaAktywna: false,
+  konwersjaData: '2028-10-15',
+  konwersjaRata: '25',
+  konwersjaWskaznik: 'polstr-1m',
+  spread: '0,20',
 };
 
 const BRAK_BLEDOW: BledyFormularza = { pola: {}, nadplaty: {} };
 
-const POLA_FORMULARZA: readonly PoleFormularza[] = ['kwota', 'liczbaRat', 'pierwszaRata', 'marza', 'typRat', 'wskaznik', 'nadplata'];
+const POLA_FORMULARZA: readonly PoleFormularza[] = [
+  'kwota',
+  'liczbaRat',
+  'pierwszaRata',
+  'marza',
+  'typRat',
+  'wskaznik',
+  'nadplata',
+  'konwersjaData',
+  'konwersjaRata',
+  'konwersjaWskaznik',
+  'spread',
+  'konwersja',
+];
 
 const OPCJE_WSKAZNIKA: OpcjaPrzelacznika<Wskaznik>[] = [
   { wartosc: 'polstr-1m', etykieta: 'POLSTR 1M' },
@@ -192,6 +227,33 @@ function walidujFormularz(formularz: Formularz, listaNadplat: NadplataFormularza
   const marza = parsujLiczbe(formularz.marza);
   if (!Number.isFinite(marza) || marza < 0) pola.marza = 'Marża nie może być ujemna.';
 
+  if (formularz.konwersjaAktywna) {
+    const spread = parsujLiczbe(formularz.spread);
+    if (!Number.isFinite(spread) || spread < 0) {
+      pola.spread = 'Spread korygujący nie może być ujemny.';
+    }
+
+    if (formularz.konwersjaData && formularz.konwersjaRata) {
+      pola.konwersjaRata = 'Wybierz tylko jedną z opcji: data albo numer raty konwersji.';
+    }
+
+    if (!formularz.konwersjaData && !formularz.konwersjaRata) {
+      pola.konwersjaData = 'Wybierz datę lub numer raty konwersji.';
+    } else {
+      if (formularz.konwersjaData && !/^\d{4}-\d{2}-\d{2}$/.test(formularz.konwersjaData)) {
+        pola.konwersjaData = 'Data konwersji ma nieprawidłowy format.';
+      }
+      if (formularz.konwersjaRata) {
+        const numerRaty = parsujLiczbe(formularz.konwersjaRata);
+        if (!Number.isInteger(numerRaty) || numerRaty < 1 || (liczbaRatPoprawna && numerRaty > liczbaRat)) {
+          pola.konwersjaRata = liczbaRatPoprawna
+            ? `Numer raty musi należeć do zakresu 1–${liczbaRat}.`
+            : 'Numer raty musi być dodatnią liczbą całkowitą.';
+        }
+      }
+    }
+  }
+
   const zajeteMiesiace = new Set<number>();
   for (const nadplata of listaNadplat) {
     const miesiac = parsujLiczbe(nadplata.miesiac);
@@ -227,6 +289,15 @@ function zbudujQuery(formularz: Formularz, listaNadplat: NadplataFormularza[]): 
   for (const nadplata of listaNadplat) {
     query.append('nadplata', `${parsujLiczbe(nadplata.miesiac)}:${naGrosze(nadplata.kwota)}:${nadplata.tryb}`);
   }
+
+  if (formularz.konwersjaAktywna) {
+    if (formularz.konwersjaData) query.set('konwersjaData', formularz.konwersjaData);
+    if (formularz.konwersjaRata) query.set('konwersjaRata', formularz.konwersjaRata);
+    query.set('konwersjaWskaznik', formularz.konwersjaWskaznik);
+    const spread = parsujLiczbe(formularz.spread);
+    if (Number.isFinite(spread)) query.set('spread', String(spread));
+  }
+
   return query;
 }
 
@@ -550,6 +621,88 @@ export default function Strona() {
                 onZmiana={(wartosc) => ustawPole('typRat', wartosc)}
                 blad={bledy.pola.typRat}
               />
+              <div className="sm:col-span-2 lg:col-span-3">
+                <label className="flex items-center gap-3 text-sm font-semibold text-neutral-800">
+                  <input
+                    type="checkbox"
+                    checked={formularz.konwersjaAktywna}
+                    onChange={(zdarzenie) => ustawPole('konwersjaAktywna', zdarzenie.target.checked)}
+                    className="size-4 accent-akcent"
+                  />
+                  Włącz konwersję wskaźnika
+                </label>
+                <p className="mt-2 text-sm text-neutral-600">
+                  Zmień wskaźnik od wybranej daty lub numeru raty, z własnym spreadem korygującym.
+                </p>
+
+                {formularz.konwersjaAktywna && (
+                  <div className="mt-5 grid max-w-5xl grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <label htmlFor="konwersjaData" className={klasy.etykieta}>
+                        Data konwersji
+                      </label>
+                      <input
+                        id="konwersjaData"
+                        type="date"
+                        className={klasaPola(bledy.pola.konwersjaData)}
+                        value={formularz.konwersjaData}
+                        onChange={(zdarzenie) => ustawPole('konwersjaData', zdarzenie.target.value)}
+                        {...atrybutyBledu('konwersjaData', bledy.pola.konwersjaData)}
+                      />
+                      <KomunikatBledu identyfikator="konwersjaData" blad={bledy.pola.konwersjaData} />
+                    </div>
+                    <div>
+                      <label htmlFor="konwersjaRata" className={klasy.etykieta}>
+                        Nr raty konwersji
+                      </label>
+                      <input
+                        id="konwersjaRata"
+                        type="number"
+                        min="1"
+                        step="1"
+                        className={klasaPola(bledy.pola.konwersjaRata)}
+                        value={formularz.konwersjaRata}
+                        onChange={(zdarzenie) => ustawPole('konwersjaRata', zdarzenie.target.value)}
+                        {...atrybutyBledu('konwersjaRata', bledy.pola.konwersjaRata)}
+                      />
+                      <KomunikatBledu identyfikator="konwersjaRata" blad={bledy.pola.konwersjaRata} />
+                    </div>
+                    <div>
+                      <label htmlFor="konwersjaWskaznik" className={klasy.etykieta}>
+                        Nowy wskaźnik
+                      </label>
+                      <select
+                        id="konwersjaWskaznik"
+                        className={klasaPola(bledy.pola.konwersjaWskaznik)}
+                        value={formularz.konwersjaWskaznik}
+                        onChange={(zdarzenie) => ustawPole('konwersjaWskaznik', zdarzenie.target.value as Wskaznik)}
+                        {...atrybutyBledu('konwersjaWskaznik', bledy.pola.konwersjaWskaznik)}
+                      >
+                        {OPCJE_WSKAZNIKA.map((opcja) => (
+                          <option key={opcja.wartosc} value={opcja.wartosc}>
+                            {opcja.etykieta}
+                          </option>
+                        ))}
+                      </select>
+                      <KomunikatBledu identyfikator="konwersjaWskaznik" blad={bledy.pola.konwersjaWskaznik} />
+                    </div>
+                    <div>
+                      <label htmlFor="spread" className={klasy.etykieta}>
+                        Spread korygujący (pp)
+                      </label>
+                      <input
+                        id="spread"
+                        inputMode="decimal"
+                        className={klasaPola(bledy.pola.spread)}
+                        value={formularz.spread}
+                        onChange={(zdarzenie) => ustawPole('spread', zdarzenie.target.value)}
+                        {...atrybutyBledu('spread', bledy.pola.spread)}
+                      />
+                      <KomunikatBledu identyfikator="spread" blad={bledy.pola.spread} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
 

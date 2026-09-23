@@ -7,6 +7,8 @@
 **Status**: Draft
 
 **Źródło**: [BRIEF.md](../../BRIEF.md) – zgłoszenie z biznesu „Kalkulator harmonogramu spłat na POLSTR”.
+Rozszerzenia w [dodatkowe_wymagania.md](../../dodatkowe_wymagania.md): CR-A (tryb nadpłaty),
+CR-B (rekompensata art. 40), CR-C (konwersja WIBOR → POLSTR ze spreadem).
 
 ## Kontekst biznesowy
 
@@ -94,27 +96,34 @@ harmonogram, w którym odsetki w miesiącach przed i po zmianie są liczone od r
 ### User Story 4 – Nadpłaty w trybie „obniż ratę” i „skróć okres” (Priority: P3)
 
 Doradca dodaje listę nadpłat: dla każdej podaje miesiąc, kwotę i tryb. Tryb „obniż ratę”
-utrzymuje pierwotną liczbę rat i przelicza wysokość kolejnych rat. Tryb „skróć okres”
-utrzymuje wysokość raty i skraca harmonogram.
+utrzymuje pierwotną liczbę rat i przelicza wysokość kolejnych rat od salda po nadpłacie.
+Tryb „skróć okres” utrzymuje wysokość raty i skraca harmonogram, kończąc ratą wyrównującą.
+Brak wskazanego trybu oznacza „skróć okres” (domyślna wartość zgodna z dotychczasowym
+zachowaniem kalkulatora). Konwencja: nadpłata następuje po zaksięgowaniu raty danego
+miesiąca, odsetki tego miesiąca liczone są od salda sprzed nadpłaty.
 
-**Why this priority**: wyraźna wartość dla doradcy prowadzącego rozmowę handlową, ale
-niekonieczna dla najprostszej demonstracji liczby kontrolnej – dlatego P3.
+**Why this priority**: art. 39 ustawy o kredycie hipotecznym daje klientowi prawo do
+wcześniejszej spłaty, a umowa banku pozwala mu wybrać sposób jej rozliczenia; doradca musi
+pokazać oba warianty obok siebie w rozmowie handlowej.
 
-**Independent Test**: nadpłata 50 000 zł w 12. miesiącu przy racie równej daje inny
-wynik dla trybu „obniż ratę” (ta sama liczba rat, niższe raty od 13. miesiąca) i „skróć
-okres” (ta sama rata, mniej rat), w obu przypadkach suma części kapitałowych plus suma
-nadpłat = kwota kredytu.
+**Independent Test**: kredyt 300 000 zł, 240 rat równych, stopa 6,66 % (WIBOR 3M 4,55 %
++ marża 2,11 pp), nadpłata 30 000 zł po zaksięgowaniu 1. raty. Rata przed nadpłatą
+2 265,07 zł, saldo po 1. racie i nadpłacie 269 399,93 zł. Tryb „obniż ratę”: nowa rata
+od 2. miesiąca 2 038,11 zł, liczba rat 240. Tryb „skróć okres”: rata 2 265,07 zł, łącznie
+196 rat (195 po nadpłacie), ostatnia rata wyrównująca 2 200,53 zł. Tolerancja ±0,05 zł.
 
 **Acceptance Scenarios**:
 
-1. **Given** harmonogram z jedną nadpłatą 50 000 zł w 12. miesiącu w trybie „obniż ratę”,
-   **When** doradca żąda harmonogramu, **Then** liczba rat pozostaje niezmieniona, a rata
-   miesięczna od 13. miesiąca jest niższa niż przed nadpłatą.
-2. **Given** ten sam scenariusz w trybie „skróć okres”, **When** doradca żąda harmonogramu,
-   **Then** harmonogram kończy się wcześniej, a wysokość raty od 13. miesiąca pozostaje
-   zbliżona do pierwotnej.
-3. **Given** dowolny scenariusz z nadpłatami, **When** system oblicza wynik, **Then** suma
-   części kapitałowych plus suma nadpłat jest równa kwocie kredytu.
+1. **Given** nadpłata bez wskazanego trybu, **When** system oblicza harmonogram,
+   **Then** stosuje tryb „skróć okres” jako wartość domyślną.
+2. **Given** nadpłata 30 000 zł po 1. racie w trybie „obniż ratę” dla parametrów
+   kontrolnych CR-A, **When** doradca żąda harmonogramu, **Then** liczba rat pozostaje 240,
+   a rata od 2. miesiąca wynosi 2 038,11 zł (±0,05 zł).
+3. **Given** ten sam scenariusz w trybie „skróć okres”, **When** doradca żąda harmonogramu,
+   **Then** liczba rat wynosi 196, rata miesięczna pozostaje 2 265,07 zł, ostatnia rata
+   wyrównująca wynosi 2 200,53 zł (±0,05 zł).
+4. **Given** dowolny scenariusz z nadpłatami, **When** system oblicza wynik, **Then** suma
+   części kapitałowych plus suma nadpłat jest równa kwocie kredytu w obu trybach.
 
 ---
 
@@ -145,6 +154,85 @@ z tymi samymi danymi.
 
 ---
 
+### User Story 6 – Rekompensata za wcześniejszą spłatę wg art. 40 (Priority: P2)
+
+Przy każdej nadpłacie kalkulator pokazuje rekompensatę należną bankowi za wcześniejszą
+spłatę kredytu o zmiennej stopie, zgodnie z art. 40 ustawy o kredycie hipotecznym.
+Rekompensata jest odrębną opłatą – nie pomniejsza salda ani kwoty nadpłaty – i musi być
+widoczna zarówno w wierszu harmonogramu, w którym padła nadpłata, jak i w podsumowaniu
+(suma rekompensat za cały okres kredytowania).
+
+**Why this priority**: klient musi zobaczyć pełny koszt decyzji o nadpłacie w oddziale;
+bez tego doradca nie może rzetelnie porównać wariantu „nadpłacam” z wariantem „nie
+nadpłacam”. Wymóg regulacyjny (art. 40) i Biuro Zgodności.
+
+**Independent Test**: dla trzech niezależnych nadpłat rekompensata jest liczona jako
+`min(3 % nadpłaty, nadpłata × stopa okresu, w którym padła nadpłata × 12 miesięcy)`
+i wynosi 0 dla nadpłat po 36. miesiącu umowy. Kontrola:
+
+| Nadpłata | Miesiąc | Stopa | 3 % | Odsetki 12 mies. | Rekompensata |
+|---|---|---|---|---|---|
+| 50 000 zł | 13 | 6,00 % | 1 500,00 zł | 3 000,00 zł | 1 500,00 zł |
+| 20 000 zł | 40 | 6,00 % | 600,00 zł | 1 200,00 zł | 0,00 zł |
+| 10 000 zł | 5 | 2,00 % | 300,00 zł | 200,00 zł | 200,00 zł |
+
+**Acceptance Scenarios**:
+
+1. **Given** nadpłata w 1.–36. miesiącu umowy, **When** system oblicza harmonogram,
+   **Then** wiersz nadpłaty zawiera osobną pozycję „rekompensata” równą
+   `min(3 % nadpłaty, nadpłata × stopa okresu × 12 miesięcy)`.
+2. **Given** nadpłata w 37. miesiącu umowy lub później, **When** system oblicza
+   harmonogram, **Then** rekompensata wynosi 0,00 zł.
+3. **Given** harmonogram kontrolny CR-A z dodatkową nadpłatą 50 000 zł w 13. miesiącu,
+   **When** doradca żąda harmonogramu, **Then** wiersz 13 pokazuje rekompensatę 1 500,00 zł,
+   suma rekompensat wynosi 1 500,00 zł, a saldo po wierszu 13 jest identyczne jak w wersji
+   bez naliczania rekompensaty (rekompensata nie pomniejsza salda).
+4. **Given** kredyt o okresowo stałej stopie, **When** doradca żąda harmonogramu, **Then**
+   system traktuje ten wariant jako poza zakresem tej zmiany (odrębne ograniczenia
+   art. 40 ust. 5) i odnotowuje to w dokumentacji.
+
+---
+
+### User Story 7 – Konwersja WIBOR → POLSTR ze spreadem korygującym (Priority: P2)
+
+Doradca konfiguruje jednorazową konwersję istniejącej umowy WIBOR-owej na POLSTR
+z konfigurowalnym spreadem korygującym, od zadanej daty lub numeru raty. Konwersja nie
+zmienia salda ani liczby rat; zmienia się wyłącznie stopa okresowa od pierwszego okresu
+odsetkowego zaczynającego się w dniu konwersji lub później. Wartość spreadu jest parametrem
+wejściowym (nie stałą w kodzie), bo docelową wartość ustali rozporządzenie Ministra
+Finansów; do testów przyjmujemy ilustracyjnie 0,20 pp.
+
+**Why this priority**: mapa drogowa Narodowej Grupy Roboczej przewiduje ustawową
+konwersję WIBOR → POLSTR w 2028 r.; klienci z aktywnymi umowami muszą w oddziale
+zobaczyć, jak zmieni się ich rata po konwersji.
+
+**Independent Test**: kredyt 300 000 zł, 240 rat równych, WIBOR 3M 4,55 % + marża 2,11 pp
+(stopa 6,66 %), konwersja od 25. raty na POLSTR 3,55 % + spread 0,20 pp + marża 2,11 pp
+(stopa 5,86 %). Wynik: raty 1–24 = 2 265,07 zł, saldo po 24. racie = 284 640,60 zł
+(bez skoku w dniu konwersji), raty 25–239 = 2 135,68 zł, rata 240 wyrównująca 2 137,47 zł,
+łącznie 240 rat. Suma odsetek bez konwersji 243 615,72 zł, z konwersją 215 670,35 zł.
+Tolerancja ±0,05 zł.
+
+**Acceptance Scenarios**:
+
+1. **Given** harmonogram z konfiguracją konwersji (data lub numer raty, nowy wskaźnik
+   z własną serią wartości, spread), **When** doradca żąda harmonogramu, **Then** od
+   pierwszego okresu odsetkowego zaczynającego się w dniu konwersji lub później stopa
+   okresu = wartość nowego wskaźnika + spread + marża.
+2. **Given** raty równe i konwersja w trakcie spłaty, **When** system przelicza raty
+   po konwersji, **Then** nowa rata liczona jest od salda w dniu konwersji na pozostałą
+   liczbę rat; liczba rat i saldo w dniu konwersji nie zmieniają się.
+3. **Given** raty malejące i konwersja w trakcie spłaty, **When** system przelicza raty
+   po konwersji, **Then** część kapitałowa pozostaje niezmieniona, zmieniają się wyłącznie
+   odsetki.
+4. **Given** harmonogram z konwersją, **When** doradca odczytuje wynik, **Then** widzi
+   w tabeli, od którego wiersza obowiązuje nowy wskaźnik (kolumna albo znacznik).
+5. **Given** parametry kontrolne CR-C, **When** doradca żąda harmonogramu, **Then**
+   rata 24 = 2 265,07 zł, saldo po racie 24 = 284 640,60 zł, rata 25 = 2 135,68 zł
+   (tolerancja ±0,05 zł), bez skoku salda między wierszami 24 i 25.
+
+---
+
 ### Edge Cases
 
 - Seria wartości wskaźnika kończy się przed ostatnią ratą – używamy ostatniej znanej wartości.
@@ -157,6 +245,15 @@ z tymi samymi danymi.
 - Kwota kredytu, liczba rat lub marża spoza sensownego zakresu (ujemna, zero) – żądanie
   odrzucone z komunikatem walidacyjnym.
 - Data pierwszej raty w niewłaściwym formacie – żądanie odrzucone z komunikatem walidacyjnym.
+- Nadpłata bez wskazanego trybu – system stosuje tryb domyślny „skróć okres”, zgodny
+  z dotychczasowym zachowaniem kalkulatora.
+- Rekompensata za wcześniejszą spłatę: dla nadpłat od 37. miesiąca umowy równa 0; dla
+  kredytu o okresowo stałej stopie – poza zakresem tej zmiany (odnotować w README).
+- Konwersja WIBOR → POLSTR skonfigurowana na datę spoza zakresu harmonogramu – konwersja
+  nie ma efektu (harmonogram w całości na dotychczasowym wskaźniku), bez błędu.
+- Konwersja wypadająca w środku kwartału WIBOR 3M – nowa stopa obowiązuje dopiero od
+  pierwszego okresu odsetkowego zaczynającego się w dniu konwersji lub później; okres
+  bieżący dokańczany jest na starej stopie.
 
 ## Requirements *(mandatory)*
 
@@ -179,8 +276,11 @@ z tymi samymi danymi.
 - **FR-007**: System MUSI zaokrąglać kwoty do grosza oraz stosować ratę wyrównującą na końcu,
   tak aby suma części kapitałowych była równa kwocie kredytu.
 - **FR-008**: System MUSI obsługiwać nadpłatę w trybie „obniż ratę” (utrzymanie liczby rat,
-  przeliczenie wysokości kolejnych rat) i „skróć okres” (utrzymanie wysokości raty, skrócenie
-  harmonogramu).
+  przeliczenie wysokości kolejnych rat od salda po nadpłacie) i „skróć okres” (utrzymanie
+  wysokości raty, skrócenie harmonogramu, ostatnia rata wyrównująca). Brak wskazanego
+  trybu MUSI być interpretowany jako „skróć okres”.
+- **FR-008a**: System MUSI przyjmować konwencję, że nadpłata następuje po zaksięgowaniu
+  raty danego miesiąca, a odsetki tego miesiąca są liczone od salda sprzed nadpłaty.
 - **FR-009**: System MUSI odrzucać żądania z nieprawidłowymi parametrami (ujemne kwoty, zerowa
   liczba rat, nieprawidłowa data, nadpłata poza zakresem) i zwracać komunikat błędu.
 - **FR-010**: System MUSI dostarczyć ekran www dostępny pod adresem głównym aplikacji,
@@ -190,6 +290,30 @@ z tymi samymi danymi.
   własny adres podglądu.
 - **FR-012**: System MUSI świadomie pomijać składanie dziennych stawek POLSTR wstecz –
   wartość wskaźnika na okres bierzemy wprost z danych wejściowych (uproszczenie MVP).
+- **FR-013**: System MUSI liczyć rekompensatę za wcześniejszą spłatę kredytu o zmiennej
+  stopie jako `min(3 % kwoty nadpłaty, kwota nadpłaty × stopa okresu, w którym padła
+  nadpłata × 12 miesięcy)` i wykazywać ją jako odrębną pozycję w wierszu harmonogramu
+  oraz w podsumowaniu (suma rekompensat).
+- **FR-014**: System MUSI naliczać rekompensatę tylko dla nadpłat w miesiącach 1–36 od
+  daty zawarcia umowy; dla nadpłat od 37. miesiąca rekompensata MUSI wynosić 0.
+- **FR-015**: System NIE MOŻE pomniejszać salda ani kwoty nadpłaty o rekompensatę –
+  saldo po nadpłacie i suma kapitału muszą być identyczne jak w wersji bez rekompensaty.
+- **FR-016**: System MUSI wyłączać naliczanie rekompensaty dla kredytu o okresowo stałej
+  stopie (art. 40 ust. 5 – poza zakresem tej zmiany) i odnotować to ograniczenie
+  w dokumentacji.
+- **FR-017**: System MUSI umożliwiać konfigurację jednorazowej konwersji wskaźnika
+  w trakcie spłaty, na którą składają się: data lub numer raty, nowy wskaźnik z własną
+  serią wartości oraz spread korygujący w punktach procentowych.
+- **FR-018**: System MUSI stosować nową stopę okresową (`wartość nowego wskaźnika + spread
+  + marża`) od pierwszego okresu odsetkowego zaczynającego się w dniu konwersji lub
+  później; marża, saldo w dniu konwersji i liczba rat MUSZĄ pozostać niezmienione.
+- **FR-019**: Dla rat równych z konwersją system MUSI przeliczyć wysokość raty od salda
+  w dniu konwersji na pozostałą liczbę rat; dla rat malejących MUSI zachować część
+  kapitałową i zmienić wyłącznie odsetki.
+- **FR-020**: Harmonogram MUSI wskazywać (kolumną albo znacznikiem), od którego wiersza
+  obowiązuje nowy wskaźnik po konwersji.
+- **FR-021**: Spread korygujący MUSI być parametrem wejściowym; system NIE MOŻE zawierać
+  spreadu jako stałej w kodzie (docelową wartość ustali rozporządzenie).
 
 ### Key Entities *(include if feature involves data)*
 
@@ -197,10 +321,18 @@ z tymi samymi danymi.
   wskaźnik, lista nadpłat.
 - **Seria wskaźnika**: uporządkowany zbiór par (data, wartość) dla POLSTR 1M lub WIBOR 3M,
   wczytywany z pliku danych.
-- **Nadpłata**: numer miesiąca, kwota, tryb („obniż ratę” / „skróć okres”).
+- **Nadpłata**: numer miesiąca, kwota, tryb („obniż ratę” / „skróć okres”, domyślnie
+  „skróć okres”). Do nadpłaty może zostać przypisana rekompensata (odrębna pozycja).
+- **Rekompensata art. 40**: kwota naliczona przy nadpłacie w miesiącach 1–36 umowy,
+  równa `min(3 % nadpłaty, nadpłata × stopa okresu × 12 miesięcy)`; nie zmienia salda
+  ani kwoty nadpłaty; sumowana w podsumowaniu harmonogramu.
+- **Konfiguracja konwersji wskaźnika**: data lub numer raty, nowy wskaźnik z własną
+  serią wartości, spread korygujący w punktach procentowych. Nie zmienia salda ani liczby
+  rat; wpływa wyłącznie na stopę okresową od dnia konwersji.
 - **Pozycja harmonogramu**: numer raty, data raty, część kapitałowa, część odsetkowa,
-  łączna rata, saldo po spłacie.
-- **Harmonogram**: lista pozycji + suma odsetek za cały okres.
+  łączna rata, saldo po spłacie, rekompensata (jeśli dotyczy), znacznik wskaźnika
+  obowiązującego w danym okresie (przed / po konwersji).
+- **Harmonogram**: lista pozycji + suma odsetek + suma rekompensat za cały okres.
 
 ## Success Criteria *(mandatory)*
 
@@ -216,8 +348,21 @@ z tymi samymi danymi.
   w mniej niż 60 sekund, bez czytania dodatkowej instrukcji.
 - **SC-004**: Pojedyncze żądanie do endpointu harmonogramu dla 300 rat zwraca wynik odczuwalnie
   natychmiast (poniżej 1 sekundy zauważalnej przez użytkownika).
-- **SC-005**: 100 % scenariuszy akceptacyjnych ze wszystkich pięciu historii użytkownika daje
-  wynik zgodny z opisem „Then”.
+- **SC-005**: 100 % scenariuszy akceptacyjnych ze wszystkich siedmiu historii użytkownika
+  daje wynik zgodny z opisem „Then”.
+- **SC-006**: Dla parametrów kontrolnych CR-A (300 000 zł, 240 rat równych, stopa 6,66 %,
+  nadpłata 30 000 zł po 1. racie) tryb „obniż ratę” daje ratę 2 038,11 zł od 2. miesiąca
+  przy 240 ratach, a tryb „skróć okres” daje 196 rat z ostatnią wyrównującą 2 200,53 zł
+  (tolerancja ±0,05 zł); wybór trybu zmienia wynik zgodnie z przewidywaniem.
+- **SC-007**: Dla nadpłaty 50 000 zł w 13. miesiącu przy stopie 6,00 % rekompensata
+  wynosi 1 500,00 zł; dla nadpłaty w 40. miesiącu – 0,00 zł; dla nadpłaty 10 000 zł
+  w 5. miesiącu przy stopie 2,00 % – 200,00 zł (tolerancja ±0,01 zł); saldo po nadpłacie
+  jest identyczne jak w wariancie bez rekompensaty.
+- **SC-008**: Dla parametrów kontrolnych CR-C (300 000 zł, 240 rat równych, WIBOR 3M
+  4,55 % + marża 2,11 pp, konwersja od 25. raty na POLSTR 3,55 % + spread 0,20 pp +
+  marża 2,11 pp) rata 24 wynosi 2 265,07 zł, saldo po racie 24 = 284 640,60 zł, rata 25
+  = 2 135,68 zł, ostatnia rata wyrównująca 2 137,47 zł, suma odsetek 215 670,35 zł
+  (tolerancja ±0,05 zł).
 
 ## Assumptions
 
@@ -236,3 +381,11 @@ z tymi samymi danymi.
   a niniejsza historia użytkownika opisuje wyłącznie jego zachowanie i zestaw danych.
 - Liczba kontrolna jest kryterium akceptacji MVP i musi być pokryta automatycznym testem
   domenowym.
+- Rekompensata art. 40 dotyczy wyłącznie kredytów o zmiennej stopie; wariant okresowo
+  stałej stopy (art. 40 ust. 5) jest świadomie poza zakresem tej wersji i będzie
+  odnotowany w README.
+- Wartość spreadu korygującego użyta w teście kontrolnym CR-C (0,20 pp) jest wartością
+  ilustracyjną; docelowa wartość zostanie określona rozporządzeniem Ministra Finansów
+  i pozostaje parametrem wejściowym, nie stałą w kodzie.
+- Konwencja rozliczania nadpłaty: nadpłata zaksięgowana po racie miesiąca, odsetki tego
+  miesiąca liczone od salda sprzed nadpłaty. Zapisana w README.

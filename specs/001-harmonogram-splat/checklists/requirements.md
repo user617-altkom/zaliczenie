@@ -1,7 +1,8 @@
 # Specification Quality Checklist: Kalkulator harmonogramu spłat na POLSTR
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-09-23
+**Created**: 2026-09-23 (zaktualizowano 2026-09-23 po CR-A/B/C z
+[dodatkowe_wymagania.md](../../../dodatkowe_wymagania.md))
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -37,3 +38,7 @@
   a nie decyzje projektowe do podjęcia w fazie planowania.
 - Liczba kontrolna z BRIEF.md jest jawnym kryterium akceptacji (SC-001) i wymaga testu
   domenowego w kolejnej fazie.
+- CR-A (tryb nadpłaty), CR-B (rekompensata art. 40) i CR-C (konwersja WIBOR → POLSTR
+  ze spreadem) są wpięte odpowiednio w User Story 4, 6 i 7 oraz w FR-008/FR-008a,
+  FR-013–FR-016, FR-017–FR-021 i SC-006–SC-008. Każdy z tych zestawów zawiera własną
+  liczbę kontrolną gotową do przełożenia na test domenowy.

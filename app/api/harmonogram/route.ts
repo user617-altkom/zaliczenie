@@ -21,6 +21,10 @@ function parsujParametry(szukane: URLSearchParams): ParametryKredytu | BladParso
   const pierwszaRata = szukane.get('pierwszaRata');
   const typRat = szukane.get('typRat');
   const wskaznik = szukane.get('wskaznik');
+  const konwersjaData = szukane.get('konwersjaData') ?? szukane.get('dataKonwersji');
+  const konwersjaRata = szukane.get('konwersjaRata') ?? szukane.get('rataKonwersji');
+  const konwersjaWskaznik = szukane.get('konwersjaWskaznik') ?? szukane.get('wskaznikPoKonwersji');
+  const spread = szukane.get('spread') ?? szukane.get('spreadKorygujacy') ?? szukane.get('spreadPp');
 
   if (!Number.isInteger(kwota) || kwota <= 0) return blad('kwota', 'kwota musi być dodatnią liczbą całkowitą groszy');
   if (!Number.isInteger(liczbaRat) || liczbaRat <= 0) return blad('liczbaRat', 'liczbaRat musi być dodatnią liczbą całkowitą');
@@ -32,6 +36,23 @@ function parsujParametry(szukane: URLSearchParams): ParametryKredytu | BladParso
   const nadplatyResult = parsujNadplaty(szukane.getAll('nadplata'), liczbaRat);
   if ('blad' in nadplatyResult) return nadplatyResult;
 
+  let konwersja: ParametryKredytu['konwersja'] | undefined = undefined;
+  if (konwersjaData || konwersjaRata || konwersjaWskaznik || spread) {
+    if (!konwersjaWskaznik || !((konwersjaData !== null && prawidlowaData(konwersjaData)) || konwersjaRata !== null) || spread === null) {
+      return blad('konwersja', 'konwersja wymaga: konwersjaData lub konwersjaRata, konwersjaWskaznik i spread');
+    }
+    const spreadValue = Number(spread);
+    if (!Number.isFinite(spreadValue) || spreadValue < 0) {
+      return blad('konwersja', 'spread musi być nieujemną liczbą punktów procentowych');
+    }
+    const wlaczona = konwersjaData !== null ? { data: konwersjaData } : { numerRaty: Number(konwersjaRata) };
+    konwersja = {
+      ...wlaczona,
+      wskaznik: mapujWskaznik(konwersjaWskaznik),
+      spreadPp: spreadValue / 100,
+    };
+  }
+
   return {
     kwotaGr: kwota,
     liczbaRat,
@@ -40,6 +61,7 @@ function parsujParametry(szukane: URLSearchParams): ParametryKredytu | BladParso
     typRat: typRat as TypRat,
     pierwszaRata,
     nadplaty: nadplatyResult,
+    konwersja,
   };
 }
 
@@ -62,10 +84,12 @@ function parsujNadplaty(wartosci: string[], liczbaRat: number): Nadplata[] | Bla
   const nadplaty: Nadplata[] = [];
   for (const wartosc of wartosci) {
     const czesci = wartosc.split(':');
-    if (czesci.length !== 3) return blad('nadplata', 'nadplata musi mieć format miesiac:kwotaGr:tryb');
+    if (czesci.length !== 2 && czesci.length !== 3) {
+      return blad('nadplata', 'nadplata musi mieć format miesiac:kwotaGr albo miesiac:kwotaGr:tryb');
+    }
     const miesiac = Number(czesci[0]);
     const kwotaGr = Number(czesci[1]);
-    const tryb = czesci[2];
+    const tryb = czesci.length === 3 ? czesci[2] : 'skroc-okres';
     if (!Number.isInteger(miesiac) || miesiac < 1 || miesiac > liczbaRat) {
       return blad('nadplata', `miesiac nadplaty musi należeć do zakresu 1..${liczbaRat}`);
     }
