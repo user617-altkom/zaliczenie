@@ -1,23 +1,274 @@
 /**
- * Moduł domenowy kalkulatora harmonogramu spłat: czyste funkcje, bez React i bez I/O.
+ * Moduł domenowy kalkulatora harmonogramu spłat.
  *
- * To jest szkielet. Właściwe typy i funkcje powstaną z /speckit-plan
- * i /speckit-implement na podstawie BRIEF.md. Poniższy typ i funkcja
- * są punktem zaczepienia, żeby typecheck, testy i route handler działały od pierwszej minuty.
+ * Czyste funkcje TypeScript: bez importów Reacta, bez I/O, bez odczytu zegara systemowego.
+ * Wszystkie kwoty przechowujemy w groszach jako liczby całkowite. Jednostki są kodowane
+ * w nazwach pól (`*Gr`), żeby uniknąć pomyłek na styku warstw.
  */
 
-export interface ParametryKredytu {
-  /** Kwota kredytu w groszach (liczba całkowita). */
+import type { WpisSerii } from '../dane/wskazniki';
+
+/** Typ raty: równa (annuitetowa) albo malejąca (stała część kapitałowa). */
+export type TypRat = 'rowne' | 'malejace';
+
+/** Identyfikator serii wskaźnika. */
+export type KodWskaznika = 'POLSTR_1M' | 'WIBOR_3M';
+
+/** Tryb obsługi nadpłaty. */
+export type TrybNadplaty = 'obniz-rate' | 'skroc-okres';
+
+/** Nadpłata przypisana do konkretnego miesiąca harmonogramu. */
+export interface Nadplata {
+  /** Numer raty (1-based), 1 ≤ miesiac ≤ liczbaRat. */
+  miesiac: number;
+  /** Kwota nadpłaty w groszach; > 0. */
   kwotaGr: number;
-  liczbaRat: number;
-  /** Marża banku jako ułamek, np. 0.0211 dla 2,11 pp. */
-  marza: number;
-  typRat: 'rowne' | 'malejace';
-  wskaznik: 'POLSTR_1M' | 'WIBOR_3M';
-  /** Data pierwszej raty w formacie YYYY-MM-DD. */
-  pierwszaRata: string;
+  /** Tryb obsługi: obniż wysokość raty albo skróć okres kredytowania. */
+  tryb: TrybNadplaty;
 }
 
-export function policzHarmonogram(parametry: ParametryKredytu): never {
-  throw new Error(`nie zaimplementowano: policzHarmonogram (${parametry.liczbaRat} rat, ${parametry.typRat})`);
+/** Parametry wejściowe kalkulatora. */
+export interface ParametryKredytu {
+  /** Kwota kredytu w groszach (liczba całkowita > 0). */
+  kwotaGr: number;
+  /** Liczba rat harmonogramu bazowego (int > 0). */
+  liczbaRat: number;
+  /** Marża banku jako ułamek roczny, np. 0.0211 dla 2,11 pp. */
+  marza: number;
+  /** Typ rat. */
+  typRat: TypRat;
+  /** Wskaźnik referencyjny. */
+  wskaznik: KodWskaznika;
+  /** Data pierwszej raty w formacie YYYY-MM-DD. */
+  pierwszaRata: string;
+  /** Nadpłaty (opcjonalne, domyślnie []). */
+  nadplaty?: Nadplata[];
+}
+
+/** Jedna pozycja harmonogramu. */
+export interface PozycjaHarmonogramu {
+  /** Numer raty (1-based). */
+  numer: number;
+  /** Data raty w formacie YYYY-MM-DD. */
+  data: string;
+  /** Część kapitałowa raty regularnej, w groszach. */
+  kapitalGr: number;
+  /** Część odsetkowa raty regularnej, w groszach. */
+  odsetkiGr: number;
+  /** Wysokość raty regularnej (kapital + odsetki), w groszach. */
+  rataGr: number;
+  /** Nadpłata zaksięgowana w tym miesiącu, w groszach (0 jeśli brak). */
+  nadplataGr: number;
+  /** Saldo po zaksięgowaniu kapitału i nadpłaty, w groszach. */
+  saldoPoGr: number;
+  /** Zastosowana stopa roczna (wskaźnik + marża) jako ułamek. */
+  stopaRoczna: number;
+}
+
+/** Pełen harmonogram. */
+export interface Harmonogram {
+  pozycje: PozycjaHarmonogramu[];
+  /** Suma wszystkich części odsetkowych, w groszach. */
+  sumaOdsetekGr: number;
+}
+
+/** Dodaje `offset` miesięcy do daty YYYY-MM-DD z korektą końca miesiąca. */
+export function nastepnaDataRaty(pierwszaRata: string, offset: number): string {
+  const dopasowanie = /^(\d{4})-(\d{2})-(\d{2})$/.exec(pierwszaRata);
+  if (!dopasowanie) {
+    throw new Error(`nieprawidłowa data pierwszej raty: ${pierwszaRata}`);
+  }
+  const rok = Number(dopasowanie[1]);
+  const miesiac = Number(dopasowanie[2]);
+  const dzien = Number(dopasowanie[3]);
+  if (miesiac < 1 || miesiac > 12 || dzien < 1 || dzien > ostatniDzienMiesiaca(rok, miesiac)) {
+    throw new Error(`nieprawidłowa data pierwszej raty: ${pierwszaRata}`);
+  }
+
+  const indeksOd0 = (rok * 12 + (miesiac - 1)) + offset;
+  const rokDocelowy = Math.floor(indeksOd0 / 12);
+  const miesiacDocelowy = (indeksOd0 % 12) + 1;
+  const ostatniDzien = ostatniDzienMiesiaca(rokDocelowy, miesiacDocelowy);
+  const dzienDocelowy = Math.min(dzien, ostatniDzien);
+
+  return `${rokDocelowy.toString().padStart(4, '0')}-${miesiacDocelowy.toString().padStart(2, '0')}-${dzienDocelowy.toString().padStart(2, '0')}`;
+}
+
+function ostatniDzienMiesiaca(rok: number, miesiac: number): number {
+  if (miesiac === 2) {
+    const przestepny = (rok % 4 === 0 && rok % 100 !== 0) || rok % 400 === 0;
+    return przestepny ? 29 : 28;
+  }
+  if (miesiac === 4 || miesiac === 6 || miesiac === 9 || miesiac === 11) {
+    return 30;
+  }
+  return 31;
+}
+
+/**
+ * Zwraca stopę roczną dla podanej daty raty:
+ * wartość wskaźnika obowiązującą na dzień raty (największy wpis z `od ≤ dataRaty`)
+ * plus marża. Jeżeli wszystkie wpisy są późniejsze niż dataRaty – używamy pierwszego
+ * wpisu (bezpieczny fallback). Jeżeli dataRaty > ostatni wpis – ostatniego (FR-005).
+ */
+export function stopaNaOkres(seria: WpisSerii[], dataRaty: string, marza: number): number {
+  if (seria.length === 0) {
+    throw new Error('seria wskaźnika jest pusta');
+  }
+  let stopaWskaznika = seria[0]!.stopa;
+  for (const wpis of seria) {
+    if (wpis.od <= dataRaty) {
+      stopaWskaznika = wpis.stopa;
+    } else {
+      break;
+    }
+  }
+  return stopaWskaznika + marza;
+}
+
+/** Licz harmonogram spłat dla podanych parametrów i serii wskaźnika. */
+export function policzHarmonogram(parametry: ParametryKredytu, seria: WpisSerii[]): Harmonogram {
+  walidujParametry(parametry);
+
+  const nadplatyWgMiesiaca = zbudujMapeNadplat(parametry);
+
+  let saldoGr = parametry.kwotaGr;
+  const pozycje: PozycjaHarmonogramu[] = [];
+  let sumaOdsetekGr = 0;
+  let rataAnnuitetowaGr: number | null = null;
+  let poprzedniaStopa: number | null = null;
+
+  for (let numer = 1; numer <= parametry.liczbaRat; numer += 1) {
+    if (saldoGr <= 0) {
+      break;
+    }
+
+    const data = nastepnaDataRaty(parametry.pierwszaRata, numer - 1);
+    const stopaRoczna = stopaNaOkres(seria, data, parametry.marza);
+    const stopaOkresowa = stopaRoczna / 12;
+    const pozostaleRaty = parametry.liczbaRat - numer + 1;
+
+    const odsetkiGr = Math.round(saldoGr * stopaOkresowa);
+
+    let kapitalGr: number;
+    let rataGr: number;
+    const jestOstatnia = numer === parametry.liczbaRat;
+
+    if (parametry.typRat === 'rowne') {
+      if (jestOstatnia) {
+        kapitalGr = saldoGr;
+        rataGr = kapitalGr + odsetkiGr;
+        rataAnnuitetowaGr = rataGr;
+      } else {
+        if (rataAnnuitetowaGr === null || stopaRoczna !== poprzedniaStopa) {
+          rataAnnuitetowaGr = ratannuitetowaGr(saldoGr, stopaOkresowa, pozostaleRaty);
+        }
+        rataGr = rataAnnuitetowaGr;
+        kapitalGr = rataGr - odsetkiGr;
+      }
+    } else {
+      if (jestOstatnia) {
+        kapitalGr = saldoGr;
+      } else {
+        kapitalGr = Math.round(saldoGr / pozostaleRaty);
+      }
+      rataGr = kapitalGr + odsetkiGr;
+    }
+
+    saldoGr -= kapitalGr;
+
+    const nadplataGr = nadplatyWgMiesiaca.get(numer) ?? 0;
+    let nadplataZaksiegowanaGr = 0;
+    if (nadplataGr > 0) {
+      nadplataZaksiegowanaGr = Math.min(nadplataGr, saldoGr);
+      saldoGr -= nadplataZaksiegowanaGr;
+      const nadplata = parametry.nadplaty!.find((n) => n.miesiac === numer)!;
+      if (nadplata.tryb === 'obniz-rate' && parametry.typRat === 'rowne' && saldoGr > 0) {
+        const pozostaleRatyPoNadplacie = parametry.liczbaRat - numer;
+        if (pozostaleRatyPoNadplacie > 0) {
+          rataAnnuitetowaGr = ratannuitetowaGr(saldoGr, stopaOkresowa, pozostaleRatyPoNadplacie);
+        }
+      }
+    }
+
+    pozycje.push({
+      numer,
+      data,
+      kapitalGr,
+      odsetkiGr,
+      rataGr,
+      nadplataGr: nadplataZaksiegowanaGr,
+      saldoPoGr: saldoGr,
+      stopaRoczna,
+    });
+
+    sumaOdsetekGr += odsetkiGr;
+    poprzedniaStopa = stopaRoczna;
+  }
+
+  return { pozycje, sumaOdsetekGr };
+}
+
+/** Wzór annuitetowy: rata = kapitał * q / (1 - (1+q)^(-n)); zaokrąglona do grosza. */
+function ratannuitetowaGr(saldoGr: number, stopaOkresowa: number, pozostaleRaty: number): number {
+  if (stopaOkresowa === 0) {
+    return Math.round(saldoGr / pozostaleRaty);
+  }
+  const wspolczynnik = stopaOkresowa / (1 - Math.pow(1 + stopaOkresowa, -pozostaleRaty));
+  return Math.round(saldoGr * wspolczynnik);
+}
+
+function walidujParametry(parametry: ParametryKredytu): void {
+  if (!Number.isInteger(parametry.kwotaGr) || parametry.kwotaGr <= 0) {
+    throw new Error('kwotaGr musi być dodatnią liczbą całkowitą groszy');
+  }
+  if (!Number.isInteger(parametry.liczbaRat) || parametry.liczbaRat <= 0) {
+    throw new Error('liczbaRat musi być dodatnią liczbą całkowitą');
+  }
+  if (!Number.isFinite(parametry.marza) || parametry.marza < 0) {
+    throw new Error('marza musi być liczbą nieujemną (ułamek roczny)');
+  }
+  if (parametry.typRat !== 'rowne' && parametry.typRat !== 'malejace') {
+    throw new Error(`nieznany typRat: ${String(parametry.typRat)}`);
+  }
+  if (parametry.wskaznik !== 'POLSTR_1M' && parametry.wskaznik !== 'WIBOR_3M') {
+    throw new Error(`nieznany wskaznik: ${String(parametry.wskaznik)}`);
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(parametry.pierwszaRata)) {
+    throw new Error(`pierwszaRata musi być w formacie YYYY-MM-DD, dostałem: ${parametry.pierwszaRata}`);
+  }
+  if (parametry.nadplaty) {
+    const miesiace = new Set<number>();
+    let sumaNadplatGr = 0;
+    for (const nadplata of parametry.nadplaty) {
+      if (!Number.isInteger(nadplata.miesiac) || nadplata.miesiac < 1 || nadplata.miesiac > parametry.liczbaRat) {
+        throw new Error(`nadplata.miesiac poza zakresem [1, ${parametry.liczbaRat}]: ${nadplata.miesiac}`);
+      }
+      if (miesiace.has(nadplata.miesiac)) {
+        throw new Error(`zduplikowana nadplata dla miesiąca ${nadplata.miesiac}`);
+      }
+      miesiace.add(nadplata.miesiac);
+      if (!Number.isInteger(nadplata.kwotaGr) || nadplata.kwotaGr <= 0) {
+        throw new Error('nadplata.kwotaGr musi być dodatnią liczbą całkowitą groszy');
+      }
+      if (nadplata.tryb !== 'obniz-rate' && nadplata.tryb !== 'skroc-okres') {
+        throw new Error(`nieznany tryb nadplaty: ${String(nadplata.tryb)}`);
+      }
+      sumaNadplatGr += nadplata.kwotaGr;
+    }
+    if (sumaNadplatGr > parametry.kwotaGr) {
+      throw new Error('suma nadpłat przekracza kwotę kredytu');
+    }
+  }
+}
+
+function zbudujMapeNadplat(parametry: ParametryKredytu): Map<number, number> {
+  const mapa = new Map<number, number>();
+  if (!parametry.nadplaty) {
+    return mapa;
+  }
+  for (const nadplata of parametry.nadplaty) {
+    mapa.set(nadplata.miesiac, nadplata.kwotaGr);
+  }
+  return mapa;
 }
