@@ -1,8 +1,11 @@
-# Harmonogram na POLSTR, szablon startowy
+# Harmonogram na POLSTR
 
 Szablon repozytorium na projekt końcowy szkolenia z AI w cyklu wytwarzania oprogramowania (dzień 3). Cel projektu: kalkulator harmonogramu spłat kredytu hipotecznego ze zmiennym oprocentowaniem na POLSTR 1M lub WIBOR 3M, budowany od zera w TypeScript i Next.js metodyką spec-kit z GitHub Copilotem, wdrażany z GitHuba na Vercel.
 
-Repozytorium zawiera zainicjalizowany spec-kit dla Copilota (skrypty PowerShell), szkielet Next.js (App Router, TypeScript, Tailwind) z pustym modułem domenowym i testami vitest, dane przykładowe wskaźników, workflow GitHub Actions, reguły review dla Copilota i skrypty rutyny review przez Copilot CLI. Nie zawiera implementacji, ta powstaje w trakcie dnia.
+Aplikacja liczy harmonogram spłat kredytu dla wskaźnika POLSTR 1M lub WIBOR 3M,
+obsługuje raty równe i malejące, zmianę stopy w czasie oraz nadpłaty z obniżeniem
+raty albo skróceniem okresu. Ekran doradcy pozwala wyświetlić harmonogram i
+wyeksportować go do CSV.
 
 Dokumenty do przeczytania na start:
 
@@ -14,8 +17,8 @@ Dokumenty do przeczytania na start:
 
 - `src/domena/harmonogram.ts`: czyste funkcje obliczeniowe, bez React i bez I/O. Tu trafia cała logika.
 - `src/dane/wskazniki.ts`: serie wskaźników zaimportowane z `dane/*.json`.
-- `app/api/harmonogram/route.ts`: `GET /api/harmonogram`, parsuje parametry z query string, woła domenę, zwraca JSON. Na razie odpowiada 501 „nie zaimplementowano” z przykładem parametrów.
-- `app/page.tsx`: strona główna. Tu wchodzi ekran z Claude Design.
+- `app/api/harmonogram/route.ts`: `GET /api/harmonogram`, parsuje parametry z query string, woła domenę i zwraca JSON.
+- `app/page.tsx`: formularz kalkulatora, tabela wyników i eksport CSV.
 - `tests/`: testy vitest domeny i danych.
 - `dane/`: serie POLSTR 1M i WIBOR 3M.
 - `.github/`, `.specify/`: skille spec-kit, instrukcje review, workflow Actions.
@@ -72,7 +75,7 @@ W PowerShell wpisuj komendy pojedynczo, jedna na linię (PowerShell 5.1 odrzuca 
    npm run typecheck
    ```
 
-6. Uruchom aplikację lokalnie i sprawdź w przeglądarce http://localhost:3000 oraz http://localhost:3000/api/harmonogram (501 „nie zaimplementowano” jest oczekiwane). Zatrzymaj serwer klawiszami Ctrl+C:
+6. Uruchom aplikację lokalnie i sprawdź w przeglądarce http://localhost:3000. Zatrzymaj serwer klawiszami Ctrl+C:
 
    ```
    npm run dev
@@ -105,9 +108,25 @@ git push -u origin main
 | `npm run typecheck` | `tsc --noEmit`, sprawdzenie typów bez kompilacji |
 | `npm run lint` | ESLint z konfiguracją Next.js |
 
+## Uruchomienie i API
+
+Po `npm run dev` formularz jest dostępny pod adresem
+`http://localhost:3000`. Endpoint przyjmuje kwotę w groszach, na przykład:
+
+```
+/api/harmonogram?kwota=40000000&liczbaRat=300&pierwszaRata=2026-10-15&marza=2.11&typRat=rowne&wskaznik=polstr-1m
+```
+
+Adres produkcyjny Vercela jest ustalany przez konfigurację wdrożenia projektu;
+po deployu należy używać adresu przypisanego przez Vercel.
+
 ## Dane
 
-Katalog `dane/` zawiera dwie serie wskaźników w formacie JSON: `polstr-1m.json` (miesięcznie, od lipca 2025) i `wibor-3m.json` (kwartalnie, od 2020). Każdy plik ma pola `wskaznik`, `opis`, `uwaga`, `zrodla` i `wartosci` z listą wpisów `{ "od": "YYYY-MM-DD", "stopa": 0.0355 }`. Stopa jest ułamkiem, nie procentem. Wpis obowiązuje od dnia `od` do dnia przed kolejnym wpisem, a po ostatnim wpisie serii obowiązuje ostatnia znana wartość. Wartości są ilustracyjne i przybliżone, szczegóły w polu `uwaga`. Nie edytuj tych plików w trakcie ćwiczenia, testy je wczytują. W kodzie serie są dostępne przez `seriaWskaznika()` z `src/dane/wskazniki.ts`.
+Katalog `dane/` zawiera dwie serie wskaźników w formacie JSON: `polstr-1m.json`
+(miesięcznie) i `wibor-3m.json` (kwartalnie). Pliki są niezmienne i nie należy
+ich edytować. Stopa jest ułamkiem, nie procentem. Wpis obowiązuje od dnia `od`
+do dnia przed kolejnym wpisem, a po ostatnim wpisie serii obowiązuje ostatnia
+znana wartość. W kodzie serie są dostępne przez `seriaWskaznika()`.
 
 ## Spec-kit
 

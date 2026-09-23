@@ -172,9 +172,16 @@ export function policzHarmonogram(parametry: ParametryKredytu, seria: WpisSerii[
       } else {
         kapitalGr = Math.round(saldoGr / pozostaleRaty);
       }
+      if (kapitalGr > saldoGr) {
+        kapitalGr = saldoGr;
+      }
       rataGr = kapitalGr + odsetkiGr;
     }
 
+    if (kapitalGr > saldoGr) {
+      kapitalGr = saldoGr;
+      rataGr = kapitalGr + odsetkiGr;
+    }
     saldoGr -= kapitalGr;
 
     const nadplataGr = nadplatyWgMiesiaca.get(numer) ?? 0;

@@ -1,1 +1,57 @@
 @import "tailwindcss";
+
+/* Tokeny systemu Broadsheet (frontend/_ds/broadsheet-…/styles.css) przeniesione do motywu Tailwind.
+   Nazwy po polsku, wartości bez zmian. Font Source Serif 4 nie jest ładowany z zewnątrz,
+   więc stos kończy się na fontach szeryfowych systemu. */
+@theme {
+  --color-papier: #f3f2f2;
+  --color-powierzchnia: #eae9e9;
+  --color-tusz: #201e1d;
+
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-akcent: #0088b0;
+  --color-akcent-100: #e9f8ff;
+  --color-akcent-200: #cbeeff;
+  --color-akcent-300: #99e0ff;
+  --color-akcent-400: #62c5ee;
+  --color-akcent-500: #38a6cf;
+  --color-akcent-600: #1186ac;
+  --color-akcent-700: #006786;
+  --color-akcent-800: #004961;
+  --color-akcent-900: #0a303e;
+
+  --color-akcent-2: #d6006c;
+  --color-akcent-2-100: #fff1f4;
+  --color-akcent-2-200: #ffdee6;
+  --color-akcent-2-300: #ffc0d0;
+  --color-akcent-2-600: #d82071;
+  --color-akcent-2-700: #aa0b56;
+  --color-akcent-2-800: #790e3d;
+
+  --font-serif: "Source Serif 4", "Iowan Old Style", Georgia, Cambria, "Times New Roman", serif;
+
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+}
+
+@layer base {
+  body {
+    background: var(--color-papier);
+    color: var(--color-tusz);
+    font-family: var(--font-serif);
+  }
+
+  ::selection {
+    background: var(--color-akcent-200);
+  }
+}
